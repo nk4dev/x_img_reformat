@@ -1,70 +1,83 @@
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="description" content="Image Reformat Tool">
-        <link rel="canonical" href="https://nknighta.me/x_img_reformat/">
-        <meta property="og:title" content="Image Reformat Tool">
-        <meta property="og:description" content="Convert Twitter image URLs to different formats">
-        <meta property="og:image" content="https://ogp-img-gen.vercel.app/api/img-gen?text=X+Image+reformat">
-        <meta property="og:url" content="https://nknighta.me/x_img_reformat/">
-        <meta name="twitter:card" content="summary">
-        <link rel="icon" type="image/x-icon" href="https://nk4dev.github.io/favicon.ico">
-        <title>Image Reformat</title>
-    </head>
-    <body>
-        <p>
-            ex. https://pbs.twimg.com/media/IMG_ID?format=jpg to https://pbs.twimg.com/media/IMG_ID?format=png
-        </p>
 
-        <input type="text" name="img_url" id="img_url" placeholder="Enter image URL">
-        <div id="img_url_result"></div>
-        <footer>
-            <p>&copy; 2025 Nknight AMAMIYA@nk4dev</p>
-        </footer>
-    </body>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-        #img_url_result img {
-            max-width: 100%;
-            height: auto;
-        }
-    </style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Image Reformat Tool">
+    <link rel="canonical" href="https://nknighta.me/x_img_reformat/">
+    <meta property="og:title" content="Image Reformat Tool">
+    <meta property="og:description" content="Convert Twitter image URLs to different formats">
+    <meta property="og:image" content="https://ogp-img-gen.vercel.app/api/img-gen?text=X+Image+reformat">
+    <meta property="og:url" content="https://nknighta.me/x_img_reformat/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" type="image/x-icon" href="https://nk4dev.github.io/favicon.ico">
+    <title>Image Reformat</title>
+    <script src="https://www.googletagmanager.com/gtag/js?id=G-9TG7JEDDCX" async></script>
     <script>
-        function getImageId() {
-            const url = document.getElementById('img_url').value;
-            const regex = /pbs\.twimg\.com\/media\/([^?]+)/;
-            const match = url.match(regex);
-            
-            if (match) {
-                return match[1];
-            }
-            return null;
-        }
-
-        document.getElementById('img_url').addEventListener('input', function() {
-            const imageId = getImageId();
-            if (imageId) {
-                if (document.getElementById('img_url_result').firstChild) {
-                    document.getElementById('img_url_result').removeChild(document.getElementById('img_url_result').firstChild);
-                }
-                const imgElement = document.createElement('img');
-                imgElement.src = `https://pbs.twimg.com/media/${imageId}?format=png`;
-                imgElement.style.maxWidth = '100%';
-                imgElement.style.height = 'auto';
-                document.getElementById('img_url_result').appendChild(imgElement);
-            } else {
-                document.getElementById('img_url_result').innerHTML = 'Invalid image URL';
-            }
-        });
+        window.dataLayer = window.dataLayer || []; function
+            gtag() { dataLayer.push(arguments); } gtag('js', new Date()); gtag('config', 'G-9TG7JEDDCX', {
+                page_path:
+                    window.location.pathname,
+            });
     </script>
+</head>
+
+<body>
+    <p>
+        ex. https://pbs.twimg.com/media/IMG_ID?format=jpg to https://pbs.twimg.com/media/IMG_ID?format=png
+    </p>
+
+    <input type="text" name="img_url" id="img_url" placeholder="Enter image URL">
+    <div id="img_url_result"></div>
+    <footer>
+        <p>&copy; 2025 Nknight AMAMIYA@nk4dev</p>
+    </footer>
+</body>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+
+    #img_url_result img {
+        max-width: 100%;
+        height: auto;
+    }
+</style>
+<script>
+    function getImageId() {
+        const url = document.getElementById('img_url').value;
+        const regex = /pbs\.twimg\.com\/media\/([^?]+)/;
+        const match = url.match(regex);
+
+        if (match) {
+            return match[1];
+        }
+        return null;
+    }
+
+    document.getElementById('img_url').addEventListener('input', function () {
+        const imageId = getImageId();
+        if (imageId) {
+            if (document.getElementById('img_url_result').firstChild) {
+                document.getElementById('img_url_result').removeChild(document.getElementById('img_url_result').firstChild);
+            }
+            const imgElement = document.createElement('img');
+            imgElement.src = `https://pbs.twimg.com/media/${imageId}?format=png`;
+            imgElement.style.maxWidth = '100%';
+            imgElement.style.height = 'auto';
+            document.getElementById('img_url_result').appendChild(imgElement);
+        } else {
+            document.getElementById('img_url_result').innerHTML = 'Invalid image URL';
+        }
+    });
+</script>
+
 </html>
