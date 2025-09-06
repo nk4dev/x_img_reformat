@@ -26,15 +26,30 @@
     <p>
         ex. https://pbs.twimg.com/media/IMG_ID?format=jpg to https://pbs.twimg.com/media/IMG_ID?format=png
     </p>
-
     <input type="text" name="img_url" id="img_url" placeholder="Enter image URL">
+
+    get url to...
+    <!-- Radio buttons for format selection -->
+    <input type="radio" name="format" value="png" checked> PNG
+    <input type="radio" name="format" value="orig"> Original Image (only jpeg)
+    <button onclick="location.reload();">
+        reload
+    </button>
+    <p id="img_url_display"></p>
     <div id="img_url_result"></div>
+    <!-- Display image -->
+
     <footer>
-        <p>&copy; 2025 Nknight AMAMIYA@nk4dev</p>
+        <p>&copy; <a href="https://nknighta.me/g">2025 Nknight AMAMIYA@nk4dev</a></p>
     </footer>
 </body>
 
 <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
     body {
         font-family: Arial, sans-serif;
         margin: 20px;
@@ -62,15 +77,28 @@
         }
         return null;
     }
-
+    function getRadioValue() {
+        const radios = document.querySelectorAll('input[type="radio"]:checked');
+        if (radios.length > 0) {
+            console.log(radios[0].value);
+            return radios[0].value;
+        }
+        return null;
+    }
     document.getElementById('img_url').addEventListener('input', function () {
         const imageId = getImageId();
+        const imgtype = getRadioValue();
         if (imageId) {
+            document.getElementById('img_url_display').innerText = `https://pbs.twimg.com/media/${imageId}?format=${imgtype === 'orig' ? 'jpg&name=orig' : 'png'}`;
             if (document.getElementById('img_url_result').firstChild) {
                 document.getElementById('img_url_result').removeChild(document.getElementById('img_url_result').firstChild);
             }
             const imgElement = document.createElement('img');
-            imgElement.src = `https://pbs.twimg.com/media/${imageId}?format=png`;
+            if (imgtype === 'orig') {
+                imgElement.src = `https://pbs.twimg.com/media/${imageId}?format=jpg&name=orig`;
+            } else {
+                imgElement.src = `https://pbs.twimg.com/media/${imageId}?format=png`;
+            }
             imgElement.style.maxWidth = '100%';
             imgElement.style.height = 'auto';
             document.getElementById('img_url_result').appendChild(imgElement);
