@@ -1,111 +1,269 @@
 <html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script src="https://cdn.tailwindcss.com"></script>
+        <meta name="description" content="Image Reformat Tool" />
+        <link rel="canonical" href="https://nknighta.me/x_img_reformat/" />
+        <meta property="og:title" content="Image Reformat Tool" />
+        <meta
+            property="og:description"
+            content="Convert Twitter image URLs to different formats"
+        />
+        <meta
+            property="og:image"
+            content="https://ogp-img-gen.vercel.app/api/img-gen?text=X+Image+reformat"
+        />
+        <meta property="og:url" content="https://nknighta.me/x_img_reformat/" />
+        <meta name="twitter:card" content="summary" />
+        <link
+            rel="icon"
+            type="image/x-icon"
+            href="https://nk4dev.github.io/favicon.ico"
+        />
+        <title>Image Reformat</title>
+    </head>
+    <body>
+        <p>ex. https://pbs.twimg.com/media/IMG_ID?format=jpg</p>
+        <p>note: when no using set name features, right click and save as</p>
+        <div class="py-4">
+            <input
+                type="text"
+                name="img_url"
+                id="img_url"
+                placeholder="Enter image URL"
+                class="bg-gray-100 px-2 py-1"
+                autofocus
+            />
+        </div>
+        <div>
+            get url to...
+            <!-- Radio buttons for format selection -->
+            <input type="radio" name="format" value="png" checked /> PNG
+            <input type="radio" name="format" value="orig" /> Original Image
+            (only jpeg)
+        </div>
+        <button onclick="location.reload()">reload</button>
+        <p id="img_url_display"></p>
+        <div id="img_url_result"></div>
+        <!-- Display image -->
+        <input
+            id="post_url"
+            placeholder="x post url"
+            class="bg-gray-100 px-2 py-1"
+        />
+        <div>
+            <button id="downloadBtn">download</button>
+        </div>
+        <div id="warning" style="display: none; color: red"></div>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Image Reformat Tool">
-    <link rel="canonical" href="https://nknighta.me/x_img_reformat/">
-    <meta property="og:title" content="Image Reformat Tool">
-    <meta property="og:description" content="Convert Twitter image URLs to different formats">
-    <meta property="og:image" content="https://ogp-img-gen.vercel.app/api/img-gen?text=X+Image+reformat">
-    <meta property="og:url" content="https://nknighta.me/x_img_reformat/">
-    <meta name="twitter:card" content="summary">
-    <link rel="icon" type="image/x-icon" href="https://nk4dev.github.io/favicon.ico">
-    <title>Image Reformat</title>
-    <script src="https://www.googletagmanager.com/gtag/js?id=G-9TG7JEDDCX" async></script>
+        <footer>
+            <p>
+                &copy;
+                <a href="https://nknighta.me/g">2025 Nknight AMAMIYA@nk4dev</a>
+            </p>
+        </footer>
+    </body>
+    <!--
+    <script src="index.js"></script> -->
     <script>
-        window.dataLayer = window.dataLayer || []; function
-            gtag() { dataLayer.push(arguments); } gtag('js', new Date()); gtag('config', 'G-9TG7JEDDCX', {
-                page_path:
-                    window.location.pathname,
+        const result = document.getElementById("result");
+
+        function extractXUserAndPost(url) {
+            const m = String(url).match(
+                /^https?:\/\/(?:x\.com|twitter\.com)\/([^/]+)\/status\/(\d+)/,
+            );
+            if (!m) return null;
+            return { userId: m[1], postId: m[2] };
+        }
+
+        function generateImageName(userId, postId, ext = "png") {
+            return `user_${userId}_post_${postId}.${ext}`;
+        }
+
+        async function urlToBlob(url) {
+            const res = await fetch(url, { mode: "cors", credentials: "omit" });
+            if (!res.ok)
+                throw new Error(
+                    `Fetch failed: ${res.status} ${res.statusText}`,
+                );
+            return await res.blob();
+        }
+
+        // usage:
+        // const blob = await urlToBlob("https://example.com/image.png");
+
+        function updateImageName() {
+            const userId = document.getElementById("x_user_id").value;
+            const postId = document.getElementById("x_post_id").value;
+            result.textContent = generateImageName(userId, postId);
+        }
+
+        function getImageId() {
+            const url = document.getElementById("img_url").value;
+            const regex = /pbs\.twimg\.com\/media\/([^?]+)/;
+            const match = url.match(regex);
+
+            if (match) {
+                return match[1];
+            }
+            return null;
+        }
+
+        function getRadioValue() {
+            const radios = document.querySelectorAll(
+                'input[type="radio"]:checked',
+            );
+            if (radios.length > 0) {
+                console.log(radios[0].value);
+                return radios[0].value;
+            }
+            return null;
+        }
+
+        function buildTwimgUrl(imageId, imgtype) {
+            if (!imageId) return null;
+            // orig は jpg を優先（Twitterの "orig" は jpg のことが多い）
+            if (imgtype === "orig")
+                return `https://pbs.twimg.com/media/${imageId}?format=jpg&name=orig`;
+            return `https://pbs.twimg.com/media/${imageId}?format=png`;
+        }
+
+        function normalizeImageFilename(filename, imgtype, blobType) {
+            const desiredExt = imgtype === "orig" ? "jpg" : "png";
+            const hasExt = /\.[a-z0-9]+$/i.test(filename);
+            const fromMime =
+                blobType === "image/jpeg"
+                    ? "jpg"
+                    : blobType === "image/png"
+                      ? "png"
+                      : null;
+
+            const ext = fromMime ?? desiredExt;
+            if (!hasExt) return `${filename}.${ext}`;
+            // 既に拡張子がある場合でも、可能なら imgtype / mime に合わせて差し替える
+            return filename.replace(/\.[a-z0-9]+$/i, `.${ext}`);
+        }
+
+        async function generateImageBlob(userName, postId) {
+            const imageId = getImageId();
+            const imgtype = getRadioValue();
+
+            if (!imageId) throw new Error("Invalid image URL");
+            if (!imgtype)
+                throw new Error("画像形式（orig/png）が選択されていません");
+
+            const url = buildTwimgUrl(imageId, imgtype);
+            const blob = await urlToBlob(url);
+
+            // fetch結果のtypeが空のケースに備えて補正
+            if (!blob.type) {
+                const mime = imgtype === "orig" ? "image/jpeg" : "image/png";
+                return new Blob([await blob.arrayBuffer()], { type: mime });
+            }
+            return blob;
+        }
+
+        function download(blob, filename) {
+            const objectURL = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+
+            a.download = filename;
+            a.href = objectURL;
+            a.rel = "noopener";
+            a.style.display = "none";
+            document.body.appendChild(a);
+            a.click();
+
+            // 後片付け
+            setTimeout(() => {
+                window.URL.revokeObjectURL(objectURL);
+                a.remove();
+            }, 0);
+        }
+
+        document
+            .getElementById("img_url")
+            .addEventListener("input", async function () {
+                const imageId = getImageId();
+                const imgtype = getRadioValue();
+
+                if (imageId) {
+                    const previewUrl = buildTwimgUrl(imageId, imgtype);
+                    document.getElementById("img_url_display").innerText =
+                        previewUrl;
+
+                    const resultEl = document.getElementById("img_url_result");
+                    if (resultEl.firstChild)
+                        resultEl.removeChild(resultEl.firstChild);
+
+                    const imgElement = document.createElement("img");
+                    imgElement.src = previewUrl;
+                    imgElement.style.maxWidth = "100%";
+                    imgElement.style.height = "auto";
+
+                    // 画像取得に失敗しても UI が固まらないようにする
+                    await new Promise((resolve) => {
+                        imgElement.onload = resolve;
+                        imgElement.onerror = resolve;
+                    });
+
+                    resultEl.appendChild(imgElement);
+                } else {
+                    document.getElementById("img_url_result").innerHTML =
+                        "Invalid image URL";
+                }
             });
+
+        function init() {
+            const xPostUrlEl = document.getElementById("post_url");
+            const downloadBtn = document.getElementById("downloadBtn");
+            const warningEl = document.getElementById("warning");
+
+            const showWarning = (msg) => {
+                if (warningEl) {
+                    warningEl.textContent = msg;
+                    warningEl.style.display = "block";
+                } else {
+                    alert(msg);
+                }
+            };
+
+            const clearWarning = () => {
+                if (warningEl) warningEl.style.display = "none";
+            };
+
+            downloadBtn.addEventListener("click", async () => {
+                const baseurl = extractXUserAndPost(xPostUrlEl.value);
+                const { userId, postId } = baseurl;
+
+                if (!userId || !postId) {
+                    showWarning("not found userid or postid...");
+                    return;
+                }
+
+                clearWarning();
+
+                try {
+                    const imgtype = getRadioValue();
+                    const blob = await generateImageBlob(userId, postId);
+                    const filename = normalizeImageFilename(
+                        generateImageName(userId, postId),
+                        imgtype,
+                        blob.type,
+                    );
+                    download(blob, filename);
+                } catch (err) {
+                    console.error(err);
+                    showWarning(
+                        err instanceof Error
+                            ? err.message
+                            : "Sorry. faild to download",
+                    );
+                }
+            });
+        }
+
+        window.addEventListener("DOMContentLoaded", init);
     </script>
-</head>
-
-<body>
-    <p>
-        ex. https://pbs.twimg.com/media/IMG_ID?format=jpg to https://pbs.twimg.com/media/IMG_ID?format=png
-    </p>
-    <input type="text" name="img_url" id="img_url" placeholder="Enter image URL">
-
-    get url to...
-    <!-- Radio buttons for format selection -->
-    <input type="radio" name="format" value="png" checked> PNG
-    <input type="radio" name="format" value="orig"> Original Image (only jpeg)
-    <button onclick="location.reload();">
-        reload
-    </button>
-    <p id="img_url_display"></p>
-    <div id="img_url_result"></div>
-    <!-- Display image -->
-
-    <footer>
-        <p>&copy; <a href="https://nknighta.me/g">2025 Nknight AMAMIYA@nk4dev</a></p>
-    </footer>
-</body>
-
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    body {
-        font-family: Arial, sans-serif;
-        margin: 20px;
-    }
-
-    input[type="text"] {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 20px;
-    }
-
-    #img_url_result img {
-        max-width: 100%;
-        height: auto;
-    }
-</style>
-<script>
-    function getImageId() {
-        const url = document.getElementById('img_url').value;
-        const regex = /pbs\.twimg\.com\/media\/([^?]+)/;
-        const match = url.match(regex);
-
-        if (match) {
-            return match[1];
-        }
-        return null;
-    }
-    function getRadioValue() {
-        const radios = document.querySelectorAll('input[type="radio"]:checked');
-        if (radios.length > 0) {
-            console.log(radios[0].value);
-            return radios[0].value;
-        }
-        return null;
-    }
-    document.getElementById('img_url').addEventListener('input', function () {
-        const imageId = getImageId();
-        const imgtype = getRadioValue();
-        if (imageId) {
-            document.getElementById('img_url_display').innerText = `https://pbs.twimg.com/media/${imageId}?format=${imgtype === 'orig' ? 'jpg&name=orig' : 'png'}`;
-            if (document.getElementById('img_url_result').firstChild) {
-                document.getElementById('img_url_result').removeChild(document.getElementById('img_url_result').firstChild);
-            }
-            const imgElement = document.createElement('img');
-            if (imgtype === 'orig') {
-                imgElement.src = `https://pbs.twimg.com/media/${imageId}?format=jpg&name=orig`;
-            } else {
-                imgElement.src = `https://pbs.twimg.com/media/${imageId}?format=png`;
-            }
-            imgElement.style.maxWidth = '100%';
-            imgElement.style.height = 'auto';
-            document.getElementById('img_url_result').appendChild(imgElement);
-        } else {
-            document.getElementById('img_url_result').innerHTML = 'Invalid image URL';
-        }
-    });
-</script>
-
 </html>
