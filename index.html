@@ -78,7 +78,7 @@
         }
 
         function generateImageName(userId, postId, ext = "png") {
-            return `user_${userId}_post_${postId}.${ext}`;
+            return `@${userId}_post_${postId}.${ext}`;
         }
 
         async function urlToBlob(url) {
@@ -238,7 +238,7 @@
                 const { userId, postId } = baseurl;
 
                 if (!userId || !postId) {
-                    showWarning("not found userid or postid...");
+                    showWarning("ユーザー名とポストIDを両方入力してください。");
                     return;
                 }
 
@@ -258,7 +258,7 @@
                     showWarning(
                         err instanceof Error
                             ? err.message
-                            : "Sorry. faild to download",
+                            : "ダウンロードに失敗しました。",
                     );
                 }
             });
