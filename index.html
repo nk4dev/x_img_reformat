@@ -170,6 +170,16 @@
             autofocus
           />
           <button
+            id="pasteBtn"
+            type="button"
+            class="inline-flex items-center rounded-xl border border-gray-300 bg-white px-3 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-xblue/30 dark:border-gray-600 dark:bg-xdarker dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+            title="Paste from clipboard"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </button>
+          <button
             id="extractBtn"
             class="inline-flex items-center gap-2 rounded-xl bg-xblue px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-xblue/90 focus:outline-none focus:ring-2 focus:ring-xblue/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -383,7 +393,7 @@
 
       function generateImageName(userId, postId, index, ext = "png") {
         const suffix = index != null ? `_${index + 1}` : "";
-        return `@${userId}_status_${postId}${suffix}.${ext}_dated_${new Date().toISOString().slice(0, 10)}`;
+        return `@${userId}_status_${postId}${suffix}.${ext}`;
       }
 
       // CORS proxy list — tried in order; first success wins
@@ -739,6 +749,19 @@
       function init() {
         // Extract button
         $("#extractBtn").addEventListener("click", handleExtract);
+
+        // Paste button
+        $("#pasteBtn").addEventListener("click", async () => {
+          try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              $("#postUrlInput").value = text.trim();
+              $("#postUrlInput").focus();
+            }
+          } catch (err) {
+            showStatus("Could not access clipboard. Please paste manually.", "error");
+          }
+        });
 
         // Enter key on input
         $("#postUrlInput").addEventListener("keydown", (e) => {
