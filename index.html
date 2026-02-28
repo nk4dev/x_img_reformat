@@ -1,270 +1,903 @@
-<html>
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <script src="https://cdn.tailwindcss.com"></script>
-        <meta name="description" content="Image Reformat Tool" />
-        <link rel="canonical" href="https://nknighta.me/x_img_reformat/" />
-        <meta property="og:title" content="Image Reformat Tool" />
-        <meta
-            property="og:description"
-            content="Convert Twitter image URLs to different formats"
-        />
-        <meta
-            property="og:image"
-            content="https://ogp-img-gen.vercel.app/api/img-gen?text=X+Image+reformat"
-        />
-        <meta property="og:url" content="https://nknighta.me/x_img_reformat/" />
-        <meta name="twitter:card" content="summary" />
-        <link
-            rel="icon"
-            type="image/x-icon"
-            href="https://nk4dev.github.io/favicon.ico"
-        />
-        <title>Image Reformat</title>
-    </head>
-    <body>
-        <p>ex. https://pbs.twimg.com/media/IMG_ID?format=jpg</p>
-        <p>note: when no using set name features, right click and save as</p>
-        <div class="py-4">
-            <input
-                type="text"
-                name="img_url"
-                id="img_url"
-                placeholder="Enter image URL"
-                class="bg-gray-100 px-2 py-1"
-                autofocus
-            />
-        </div>
-        <div>
-            get url to...
-            <!-- Radio buttons for format selection -->
-            <input type="radio" name="format" value="png" checked /> PNG
-            <input type="radio" name="format" value="orig" /> Original Image
-            (only jpeg)
-        </div>
-        <button onclick="location.reload()">reload</button>
-        <p id="img_url_display"></p>
-        <!-- Display image -->
-        <input
-            id="post_url"
-            placeholder="x post url"
-            class="bg-gray-100 px-2 py-1"
-        />
-        <div>
-            <button id="downloadBtn" class="p-2 bg-gray-200">download</button>
-        </div>
-
-        <div id="warning" style="display: none; color: red"></div>
-        <div id="img_url_result"></div>
-
-        <footer>
-            <p>
-                &copy;
-                <a href="https://nknighta.me/g">2025 Nknight AMAMIYA@nk4dev</a>
-            </p>
-        </footer>
-    </body>
-    <!--
-    <script src="index.js"></script> -->
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        const result = document.getElementById("result");
-
-        function extractXUserAndPost(url) {
-            const m = String(url).match(
-                /^https?:\/\/(?:x\.com|twitter\.com)\/([^/]+)\/status\/(\d+)/,
-            );
-            if (!m) return null;
-            return { userId: m[1], postId: m[2] };
-        }
-
-        function generateImageName(userId, postId, ext = "png") {
-            return `@${userId}_post_${postId}.${ext}`;
-        }
-
-        async function urlToBlob(url) {
-            const res = await fetch(url, { mode: "cors", credentials: "omit" });
-            if (!res.ok)
-                throw new Error(
-                    `Fetch failed: ${res.status} ${res.statusText}`,
-                );
-            return await res.blob();
-        }
-
-        // usage:
-        // const blob = await urlToBlob("https://example.com/image.png");
-
-        function updateImageName() {
-            const userId = document.getElementById("x_user_id").value;
-            const postId = document.getElementById("x_post_id").value;
-            result.textContent = generateImageName(userId, postId);
-        }
-
-        function getImageId() {
-            const url = document.getElementById("img_url").value;
-            const regex = /pbs\.twimg\.com\/media\/([^?]+)/;
-            const match = url.match(regex);
-
-            if (match) {
-                return match[1];
-            }
-            return null;
-        }
-
-        function getRadioValue() {
-            const radios = document.querySelectorAll(
-                'input[type="radio"]:checked',
-            );
-            if (radios.length > 0) {
-                console.log(radios[0].value);
-                return radios[0].value;
-            }
-            return null;
-        }
-
-        function buildTwimgUrl(imageId, imgtype) {
-            if (!imageId) return null;
-            // orig は jpg を優先（Twitterの "orig" は jpg のことが多い）
-            if (imgtype === "orig")
-                return `https://pbs.twimg.com/media/${imageId}?format=jpg&name=orig`;
-            return `https://pbs.twimg.com/media/${imageId}?format=png`;
-        }
-
-        function normalizeImageFilename(filename, imgtype, blobType) {
-            const desiredExt = imgtype === "orig" ? "jpg" : "png";
-            const hasExt = /\.[a-z0-9]+$/i.test(filename);
-            const fromMime =
-                blobType === "image/jpeg"
-                    ? "jpg"
-                    : blobType === "image/png"
-                      ? "png"
-                      : null;
-
-            const ext = fromMime ?? desiredExt;
-            if (!hasExt) return `${filename}.${ext}`;
-            // 既に拡張子がある場合でも、可能なら imgtype / mime に合わせて差し替える
-            return filename.replace(/\.[a-z0-9]+$/i, `.${ext}`);
-        }
-
-        async function generateImageBlob(userName, postId) {
-            const imageId = getImageId();
-            const imgtype = getRadioValue();
-
-            if (!imageId) throw new Error("Invalid image URL");
-            if (!imgtype)
-                throw new Error("画像形式（orig/png）が選択されていません");
-
-            const url = buildTwimgUrl(imageId, imgtype);
-            const blob = await urlToBlob(url);
-
-            // fetch結果のtypeが空のケースに備えて補正
-            if (!blob.type) {
-                const mime = imgtype === "orig" ? "image/jpeg" : "image/png";
-                return new Blob([await blob.arrayBuffer()], { type: mime });
-            }
-            return blob;
-        }
-
-        function download(blob, filename) {
-            const objectURL = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-
-            a.download = filename;
-            a.href = objectURL;
-            a.rel = "noopener";
-            a.style.display = "none";
-            document.body.appendChild(a);
-            a.click();
-
-            // 後片付け
-            setTimeout(() => {
-                window.URL.revokeObjectURL(objectURL);
-                a.remove();
-            }, 0);
-        }
-
-        document
-            .getElementById("img_url")
-            .addEventListener("input", async function () {
-                const imageId = getImageId();
-                const imgtype = getRadioValue();
-
-                if (imageId) {
-                    const previewUrl = buildTwimgUrl(imageId, imgtype);
-                    document.getElementById("img_url_display").innerText =
-                        previewUrl;
-
-                    const resultEl = document.getElementById("img_url_result");
-                    if (resultEl.firstChild)
-                        resultEl.removeChild(resultEl.firstChild);
-
-                    const imgElement = document.createElement("img");
-                    imgElement.src = previewUrl;
-                    imgElement.style.maxWidth = "100%";
-                    imgElement.style.height = "auto";
-
-                    // 画像取得に失敗しても UI が固まらないようにする
-                    await new Promise((resolve) => {
-                        imgElement.onload = resolve;
-                        imgElement.onerror = resolve;
-                    });
-
-                    resultEl.appendChild(imgElement);
-                } else {
-                    document.getElementById("img_url_result").innerHTML =
-                        "Invalid image URL";
-                }
-            });
-
-        function init() {
-            const xPostUrlEl = document.getElementById("post_url");
-            const downloadBtn = document.getElementById("downloadBtn");
-            const warningEl = document.getElementById("warning");
-
-            const showWarning = (msg) => {
-                if (warningEl) {
-                    warningEl.textContent = msg;
-                    warningEl.style.display = "block";
-                } else {
-                    alert(msg);
-                }
-            };
-
-            const clearWarning = () => {
-                if (warningEl) warningEl.style.display = "none";
-            };
-
-            downloadBtn.addEventListener("click", async () => {
-                const baseurl = extractXUserAndPost(xPostUrlEl.value);
-                const { userId, postId } = baseurl;
-
-                if (!userId || !postId) {
-                    showWarning("ユーザー名とポストIDを両方入力してください。");
-                    return;
-                }
-
-                clearWarning();
-
-                try {
-                    const imgtype = getRadioValue();
-                    const blob = await generateImageBlob(userId, postId);
-                    const filename = normalizeImageFilename(
-                        generateImageName(userId, postId),
-                        imgtype,
-                        blob.type,
-                    );
-                    download(blob, filename);
-                } catch (err) {
-                    console.error(err);
-                    showWarning(
-                        err instanceof Error
-                            ? err.message
-                            : "ダウンロードに失敗しました。",
-                    );
-                }
-            });
-        }
-
-        window.addEventListener("DOMContentLoaded", init);
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              xblue: "#1d9bf0",
+              xdark: "#15202b",
+              xdarker: "#0d1520",
+            },
+            animation: {
+              "fade-in": "fadeIn 0.4s ease-out forwards",
+              "slide-up": "slideUp 0.3s ease-out forwards",
+              spin: "spin 1s linear infinite",
+            },
+            keyframes: {
+              fadeIn: { from: { opacity: 0 }, to: { opacity: 1 } },
+              slideUp: {
+                from: { opacity: 0, transform: "translateY(12px)" },
+                to: { opacity: 1, transform: "translateY(0)" },
+              },
+              spin: { to: { transform: "rotate(360deg)" } },
+            },
+          },
+        },
+      };
     </script>
+    <meta
+      name="description"
+      content="Extract and download images from X (Twitter) posts"
+    />
+    <link rel="canonical" href="https://nknighta.me/x_img_reformat/" />
+    <meta property="og:title" content="X Image Extractor" />
+    <meta
+      property="og:description"
+      content="Extract and download images from X (Twitter) posts instantly"
+    />
+    <meta
+      property="og:image"
+      content="https://ogp-img-gen.vercel.app/api/img-gen?text=X+Image+Extractor"
+    />
+    <meta property="og:url" content="https://nknighta.me/x_img_reformat/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="https://nk4dev.github.io/favicon.ico"
+    />
+    <title>X Image Extractor</title>
+    <style>
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+
+      /* Transitions for theme toggle */
+      * {
+        transition: background-color 0.2s ease, border-color 0.2s ease,
+          color 0.2s ease;
+      }
+
+      /* Image card hover effect */
+      .img-card:hover .img-overlay {
+        opacity: 1;
+      }
+      .img-card .img-overlay {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen bg-gray-50 text-gray-900 dark:bg-xdark dark:text-gray-100"
+  >
+    <!-- Header -->
+    <header
+      class="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-md dark:border-gray-700/50 dark:bg-xdark/80"
+    >
+      <div
+        class="mx-auto flex max-w-3xl items-center justify-between px-4 py-3"
+      >
+        <div class="flex items-center gap-2">
+          <!-- X Logo -->
+          <svg
+            viewBox="0 0 24 24"
+            class="h-7 w-7 fill-current"
+            aria-hidden="true"
+          >
+            <path
+              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+            />
+          </svg>
+          <h1 class="text-lg font-bold tracking-tight">Image Extractor</h1>
+          <a href="?fallback=1">
+            Direct input URL
+          </a>
+        </div>
+        <!-- Theme Toggle -->
+        <button
+          id="themeToggle"
+          class="rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+          aria-label="Toggle theme"
+        >
+          <!-- Sun icon (dark mode) -->
+          <svg
+            id="sunIcon"
+            class="hidden h-5 w-5 dark:block"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+          <!-- Moon icon (light mode) -->
+          <svg
+            id="moonIcon"
+            class="block h-5 w-5 dark:hidden"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-3xl px-4 py-8">
+      <!-- Main Input Section -->
+      <section class="mb-8">
+        <label
+          for="postUrlInput"
+          class="mb-2 block text-sm font-medium text-gray-600 dark:text-gray-400"
+        >
+          X (Twitter) Post URL
+        </label>
+        <div class="flex gap-2">
+          <input
+            type="url"
+            id="postUrlInput"
+            placeholder="https://x.com/user/status/123456789..."
+            class="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-xblue focus:outline-none focus:ring-2 focus:ring-xblue/30 dark:border-gray-600 dark:bg-xdarker dark:placeholder:text-gray-500"
+            autofocus
+          />
+          <button
+            id="extractBtn"
+            class="inline-flex items-center gap-2 rounded-xl bg-xblue px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-xblue/90 focus:outline-none focus:ring-2 focus:ring-xblue/50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <!-- Default: Arrow icon -->
+            <svg
+              id="extractIcon"
+              class="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <!-- Spinner (hidden by default) -->
+            <svg
+              id="extractSpinner"
+              class="hidden h-4 w-4 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <span id="extractBtnText">Extract</span>
+          </button>
+        </div>
+        <p class="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+          e.g. https://x.com/user/status/1234567890
+        </p>
+      </section>
+
+      <!-- Format Selection -->
+      <section class="mb-6">
+        <fieldset class="flex items-center gap-4">
+          <legend
+            class="mr-2 text-sm font-medium text-gray-600 dark:text-gray-400"
+          >
+            Format:
+          </legend>
+          <label
+            class="inline-flex cursor-pointer items-center gap-1.5 text-sm"
+          >
+            <input
+              type="radio"
+              name="format"
+              value="png"
+              checked
+              class="accent-xblue"
+            />
+            PNG
+          </label>
+          <label
+            class="inline-flex cursor-pointer items-center gap-1.5 text-sm"
+          >
+            <input type="radio" name="format" value="orig" class="accent-xblue" />
+            Original (JPG)
+          </label>
+        </fieldset>
+      </section>
+
+      <!-- Status / Error Messages -->
+      <div
+        id="statusArea"
+        class="mb-6 hidden rounded-xl border px-4 py-3 text-sm"
+      ></div>
+
+      <!-- Image Results Grid -->
+      <section id="resultsSection" class="mb-8 hidden">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400">
+            Extracted Images
+            <span
+              id="imageCount"
+              class="ml-1.5 rounded-full bg-xblue/10 px-2 py-0.5 text-xs font-medium text-xblue"
+            ></span>
+          </h2>
+          <button
+            id="downloadAllBtn"
+            class="hidden inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+          >
+            <svg
+              class="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Download All
+          </button>
+        </div>
+        <div
+          id="imageGrid"
+          class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+        ></div>
+      </section>
+
+      <!-- Fallback: Manual Image URL Input (collapsible) -->
+      <section id="fallbackSection" class="mb-8 hidden">
+        <button
+          id="fallbackToggle"
+          class="flex w-full items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-3 text-left text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300"
+        >
+          <svg
+            id="fallbackChevron"
+            class="h-4 w-4 transition-transform"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+          Enter image URL directly (Fallback)
+        </button>
+        <div id="fallbackPanel" class="mt-3 hidden space-y-3">
+          <div>
+            <label
+              for="manualImgUrl"
+              class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+            >
+              pbs.twimg.com Image URL
+            </label>
+            <input
+              type="url"
+              id="manualImgUrl"
+              placeholder="https://pbs.twimg.com/media/IMG_ID?format=jpg"
+              class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-xblue focus:outline-none focus:ring-2 focus:ring-xblue/30 dark:border-gray-600 dark:bg-xdarker dark:placeholder:text-gray-500"
+            />
+          </div>
+          <div>
+            <label
+              for="manualPostUrl"
+              class="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+            >
+              X Post URL (optional, for filename generation)
+            </label>
+            <input
+              type="url"
+              id="manualPostUrl"
+              placeholder="https://x.com/user/status/123..."
+              class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-xblue focus:outline-none focus:ring-2 focus:ring-xblue/30 dark:border-gray-600 dark:bg-xdarker dark:placeholder:text-gray-500"
+            />
+          </div>
+          <div class="flex gap-2">
+            <button
+              id="manualPreviewBtn"
+              class="rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+              Preview
+            </button>
+            <button
+              id="manualDownloadBtn"
+              class="rounded-lg bg-xblue px-4 py-2 text-sm font-medium text-white hover:bg-xblue/90"
+            >
+              Download
+            </button>
+          </div>
+          <div id="manualPreviewArea"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer
+      class="border-t border-gray-200 py-6 text-center text-xs text-gray-400 dark:border-gray-700/50 dark:text-gray-500"
+    >
+      &copy;
+      <a
+        href="https://nknighta.me/g"
+        class="hover:text-xblue hover:underline"
+      >
+        2025 Nknight AMAMIYA@nk4dev
+      </a>
+    </footer>
+
+    <script>
+      // ─── Utility Functions ─────────────────────────────────
+      function extractXUserAndPost(url) {
+        const m = String(url).match(
+          /^https?:\/\/(?:x\.com|twitter\.com)\/([^/]+)\/status\/(\d+)/
+        );
+        if (!m) return null;
+        return { userId: m[1], postId: m[2] };
+      }
+
+      function generateImageName(userId, postId, index, ext = "png") {
+        const suffix = index != null ? `_${index + 1}` : "";
+        return `@${userId}_status_${postId}${suffix}.${ext}_dated_${new Date().toISOString().slice(0, 10)}`;
+      }
+
+      // CORS proxy list — tried in order; first success wins
+      const CORS_PROXIES = [
+        (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+        (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      ];
+
+      async function urlToBlob(url) {
+        // 1) Try direct fetch first (works when same-origin or CORS allowed)
+        try {
+          const res = await fetch(url, { mode: "cors", credentials: "omit" });
+          if (res.ok) return await res.blob();
+        } catch (_) {}
+
+        // 2) Try CORS proxies
+        for (const makeProxy of CORS_PROXIES) {
+          try {
+            const proxyUrl = makeProxy(url);
+            const res = await fetch(proxyUrl, { credentials: "omit" });
+            if (res.ok) {
+              const blob = await res.blob();
+              // Some proxies return text/html on error — verify it's an image
+              if (blob.type && blob.type.startsWith("image/")) return blob;
+              // If type is empty but size is reasonable, assume image
+              if (!blob.type && blob.size > 1024) return blob;
+            }
+          } catch (_) {}
+        }
+
+        throw new Error(
+          "CORS error: Could not fetch the image. Try right-click → Save image as."
+        );
+      }
+
+      function extractImageId(url) {
+        const match = String(url).match(/pbs\.twimg\.com\/media\/([^?/]+)/);
+        return match ? match[1] : null;
+      }
+
+      function getSelectedFormat() {
+        const checked = document.querySelector(
+          'input[name="format"]:checked'
+        );
+        return checked ? checked.value : "png";
+      }
+
+      function buildTwimgUrl(imageId, imgtype) {
+        if (!imageId) return null;
+        if (imgtype === "orig")
+          return `https://pbs.twimg.com/media/${imageId}?format=jpg&name=orig`;
+        return `https://pbs.twimg.com/media/${imageId}?format=png&name=large`;
+      }
+
+      /**
+       * Convert a raw twimg photo URL to the user-selected format.
+       * Input examples:
+       *   https://pbs.twimg.com/media/ABC123.jpg
+       *   https://pbs.twimg.com/media/ABC123?format=jpg&name=medium
+       */
+      function convertPhotoUrl(rawUrl, imgtype) {
+        const id = extractImageId(rawUrl);
+        if (id) return buildTwimgUrl(id, imgtype);
+        // Fallback: append format params
+        if (imgtype === "orig") {
+          return rawUrl.replace(/\?.*$/, "") + "?format=jpg&name=orig";
+        }
+        return rawUrl.replace(/\?.*$/, "") + "?format=png&name=large";
+      }
+
+      function normalizeImageFilename(filename, imgtype, blobType) {
+        const desiredExt = imgtype === "orig" ? "jpg" : "png";
+        const fromMime =
+          blobType === "image/jpeg"
+            ? "jpg"
+            : blobType === "image/png"
+              ? "png"
+              : null;
+        const ext = fromMime ?? desiredExt;
+        const hasExt = /\.[a-z0-9]+$/i.test(filename);
+        if (!hasExt) return `${filename}.${ext}`;
+        return filename.replace(/\.[a-z0-9]+$/i, `.${ext}`);
+      }
+
+      function downloadBlob(blob, filename) {
+        const objectURL = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.download = filename;
+        a.href = objectURL;
+        a.rel = "noopener";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          URL.revokeObjectURL(objectURL);
+          a.remove();
+        }, 100);
+      }
+
+      // ─── FxTwitter API ─────────────────────────────────────
+      async function fetchTweetMedia(tweetId) {
+        const apiUrl = `https://api.fxtwitter.com/status/${tweetId}`;
+        const res = await fetch(apiUrl);
+        if (!res.ok) {
+          throw new Error(
+            `FxTwitter API error: ${res.status} ${res.statusText}`
+          );
+        }
+        const data = await res.json();
+        const tweet = data.tweet;
+        if (!tweet) throw new Error("Could not retrieve tweet data");
+
+        const photos = [];
+        if (tweet.media?.photos) {
+          for (const photo of tweet.media.photos) {
+            photos.push(photo.url);
+          }
+        }
+        // Also check mosaic (4-image collage) — individual URLs preferred
+        if (photos.length === 0 && tweet.media?.mosaic) {
+          // mosaic doesn't have individual photos in some responses
+          throw new Error(
+            "No images found (the post may contain only videos)"
+          );
+        }
+        if (photos.length === 0) {
+          throw new Error(
+            "No images found (the post may contain only videos)"
+          );
+        }
+        return {
+          userId: tweet.author?.screen_name ?? "unknown",
+          photos,
+        };
+      }
+
+      // ─── UI Helpers ────────────────────────────────────────
+      const $ = (sel) => document.querySelector(sel);
+      const $all = (sel) => document.querySelectorAll(sel);
+
+      function showStatus(msg, type = "info") {
+        const el = $("#statusArea");
+        el.className =
+          "mb-6 rounded-xl border px-4 py-3 text-sm animate-fade-in";
+        if (type === "error") {
+          el.classList.add(
+            "border-red-300",
+            "bg-red-50",
+            "text-red-700",
+            "dark:border-red-700/50",
+            "dark:bg-red-900/20",
+            "dark:text-red-400"
+          );
+        } else if (type === "success") {
+          el.classList.add(
+            "border-green-300",
+            "bg-green-50",
+            "text-green-700",
+            "dark:border-green-700/50",
+            "dark:bg-green-900/20",
+            "dark:text-green-400"
+          );
+        } else {
+          el.classList.add(
+            "border-blue-300",
+            "bg-blue-50",
+            "text-blue-700",
+            "dark:border-blue-700/50",
+            "dark:bg-blue-900/20",
+            "dark:text-blue-400"
+          );
+        }
+        el.textContent = msg;
+        el.classList.remove("hidden");
+      }
+
+      function hideStatus() {
+        $("#statusArea").classList.add("hidden");
+      }
+
+      function setLoading(loading) {
+        const btn = $("#extractBtn");
+        const icon = $("#extractIcon");
+        const spinner = $("#extractSpinner");
+        const text = $("#extractBtnText");
+        btn.disabled = loading;
+        if (loading) {
+          icon.classList.add("hidden");
+          spinner.classList.remove("hidden");
+          text.textContent = "Loading...";
+        } else {
+          icon.classList.remove("hidden");
+          spinner.classList.add("hidden");
+          text.textContent = "Extract";
+        }
+      }
+
+      function createImageCard(photoUrl, index, userId, postId) {
+        const imgtype = getSelectedFormat();
+        const displayUrl = convertPhotoUrl(photoUrl, imgtype);
+
+        const card = document.createElement("div");
+        card.className =
+          "img-card group relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-xdarker animate-slide-up";
+        card.style.animationDelay = `${index * 80}ms`;
+        card.style.opacity = "0";
+
+        card.innerHTML = `
+          <div class="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-gray-800">
+            <img
+              src="${displayUrl}"
+              alt="Image ${index + 1}"
+              class="h-full w-full object-contain"
+              loading="lazy"
+              onerror="this.parentElement.innerHTML='<div class=\'flex h-full items-center justify-center text-gray-400 dark:text-gray-500\'>Failed to load image</div>'"
+            />
+            <div class="img-overlay absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent p-3">
+              <span class="rounded bg-black/50 px-2 py-0.5 text-xs text-white/90">${index + 1} / ${postId ? "@" + userId : "image"}</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between px-3 py-2.5">
+            <span class="truncate text-xs text-gray-500 dark:text-gray-400" title="${displayUrl}">
+              ${extractImageId(displayUrl) ?? "image"}_${index + 1}
+            </span>
+            <button
+              class="dl-single-btn inline-flex items-center gap-1 rounded-lg bg-xblue/10 px-2.5 py-1 text-xs font-medium text-xblue hover:bg-xblue/20"
+              data-url="${displayUrl}"
+              data-index="${index}"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              DL
+            </button>
+          </div>
+        `;
+        return card;
+      }
+
+      function renderImages(photos, userId, postId) {
+        const grid = $("#imageGrid");
+        const section = $("#resultsSection");
+        const countEl = $("#imageCount");
+        const dlAllBtn = $("#downloadAllBtn");
+
+        grid.innerHTML = "";
+        photos.forEach((url, i) => {
+          grid.appendChild(createImageCard(url, i, userId, postId));
+        });
+
+        countEl.textContent = `${photos.length} image${photos.length !== 1 ? 's' : ''}`;
+        section.classList.remove("hidden");
+        dlAllBtn.classList.toggle("hidden", photos.length <= 1);
+
+        // Attach single-download handlers
+        grid.querySelectorAll(".dl-single-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const imgUrl = btn.dataset.url;
+            const idx = parseInt(btn.dataset.index, 10);
+            const imgtype = getSelectedFormat();
+            btn.disabled = true;
+            btn.textContent = "...";
+            try {
+              const blob = await urlToBlob(imgUrl);
+              const filename = normalizeImageFilename(
+                generateImageName(userId, postId, idx),
+                imgtype,
+                blob.type
+              );
+              downloadBlob(blob, filename);
+            } catch (err) {
+              console.error(err);
+              // Fallback: open image in new tab for manual save
+              showStatus(
+                `Image ${idx + 1}: CORS error — opened in a new tab. Right-click → Save to download.`,
+                "error"
+              );
+              window.open(imgUrl, "_blank");
+            } finally {
+              btn.disabled = false;
+              btn.innerHTML = `<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> DL`;
+            }
+          });
+        });
+      }
+
+      // ─── Main Logic ────────────────────────────────────────
+      // Store current result for download-all
+      let currentResult = null;
+
+      async function handleExtract() {
+        const input = $("#postUrlInput").value.trim();
+        if (!input) {
+          showStatus("Please enter a URL", "error");
+          return;
+        }
+
+        const parsed = extractXUserAndPost(input);
+        if (!parsed) {
+          showStatus(
+            "Please enter a valid X (Twitter) post URL\ne.g. https://x.com/user/status/123456789",
+            "error"
+          );
+          return;
+        }
+
+        hideStatus();
+        setLoading(true);
+
+        try {
+          const result = await fetchTweetMedia(parsed.postId);
+          const userId = result.userId;
+          const imgtype = getSelectedFormat();
+
+          currentResult = {
+            photos: result.photos,
+            userId,
+            postId: parsed.postId,
+          };
+
+          renderImages(result.photos, userId, parsed.postId);
+          showStatus(
+            `Extracted ${result.photos.length} image${result.photos.length !== 1 ? 's' : ''} (@${userId})`,
+            "success"
+          );
+        } catch (err) {
+          console.error("FxTwitter API failed:", err);
+          showStatus(
+            `Failed to extract images: ${err.message}\nTry entering the image URL directly below.`,
+            "error"
+          );
+          // Auto-expand fallback panel
+          openFallbackPanel();
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      function isFallbackMode() {
+        return new URLSearchParams(window.location.search).get("fallback") === "1";
+      }
+
+      function openFallbackPanel() {
+        const section = $("#fallbackSection");
+        const panel = $("#fallbackPanel");
+        const chevron = $("#fallbackChevron");
+        section.classList.remove("hidden");
+        panel.classList.remove("hidden");
+        chevron.style.transform = "rotate(90deg)";
+      }
+
+      // ─── Init ──────────────────────────────────────────────
+      function init() {
+        // Extract button
+        $("#extractBtn").addEventListener("click", handleExtract);
+
+        // Enter key on input
+        $("#postUrlInput").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") handleExtract();
+        });
+
+        // Download all
+        $("#downloadAllBtn").addEventListener("click", async () => {
+          if (!currentResult) return;
+          const { photos, userId, postId } = currentResult;
+          const imgtype = getSelectedFormat();
+          const btn = $("#downloadAllBtn");
+          btn.disabled = true;
+          btn.textContent = "Downloading...";
+
+          let failCount = 0;
+          for (let i = 0; i < photos.length; i++) {
+            try {
+              const url = convertPhotoUrl(photos[i], imgtype);
+              const blob = await urlToBlob(url);
+              const filename = normalizeImageFilename(
+                generateImageName(userId, postId, i),
+                imgtype,
+                blob.type
+              );
+              downloadBlob(blob, filename);
+              // Small delay between downloads to avoid browser blocking
+              await new Promise((r) => setTimeout(r, 500));
+            } catch (err) {
+              console.error(`Image ${i + 1} failed:`, err);
+              failCount++;
+              // Open in new tab as fallback
+              const url = convertPhotoUrl(photos[i], imgtype);
+              window.open(url, "_blank");
+            }
+          }
+          if (failCount > 0) {
+            showStatus(
+              `${failCount} image${failCount !== 1 ? 's' : ''} opened in new tab${failCount !== 1 ? 's' : ''} due to CORS error. Right-click → Save to download.`,
+              "error"
+            );
+          }
+
+          btn.disabled = false;
+          btn.innerHTML = `<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Download All`;
+        });
+
+        // Fallback toggle
+        $("#fallbackToggle").addEventListener("click", () => {
+          const panel = $("#fallbackPanel");
+          const chevron = $("#fallbackChevron");
+          const isHidden = panel.classList.contains("hidden");
+          panel.classList.toggle("hidden");
+          chevron.style.transform = isHidden ? "rotate(90deg)" : "";
+        });
+
+        // Manual preview
+        $("#manualPreviewBtn").addEventListener("click", () => {
+          const imgUrl = $("#manualImgUrl").value.trim();
+          if (!imgUrl) {
+            showStatus("Please enter an image URL", "error");
+            return;
+          }
+          const imgtype = getSelectedFormat();
+          const id = extractImageId(imgUrl);
+          const displayUrl = id ? buildTwimgUrl(id, imgtype) : imgUrl;
+          const area = $("#manualPreviewArea");
+          area.innerHTML = `
+            <div class="mt-3 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+              <img src="${displayUrl}" alt="Preview" class="w-full" onerror="this.alt='Failed to load image'" />
+            </div>
+            <p class="mt-1 break-all text-xs text-gray-400">${displayUrl}</p>
+          `;
+        });
+
+        // Manual download
+        $("#manualDownloadBtn").addEventListener("click", async () => {
+          const imgUrl = $("#manualImgUrl").value.trim();
+          if (!imgUrl) {
+            showStatus("Please enter an image URL", "error");
+            return;
+          }
+
+          const imgtype = getSelectedFormat();
+          const id = extractImageId(imgUrl);
+          const url = id ? buildTwimgUrl(id, imgtype) : imgUrl;
+
+          const postUrl = $("#manualPostUrl").value.trim();
+          const parsed = extractXUserAndPost(postUrl);
+
+          try {
+            const blob = await urlToBlob(url);
+            let filename;
+            if (parsed) {
+              filename = normalizeImageFilename(
+                generateImageName(parsed.userId, parsed.postId, null),
+                imgtype,
+                blob.type
+              );
+            } else {
+              const ext = imgtype === "orig" ? "jpg" : "png";
+              filename = `x_image_${Date.now()}.${ext}`;
+            }
+            downloadBlob(blob, filename);
+            showStatus("Download started", "success");
+          } catch (err) {
+            console.error(err);
+            // Fallback: open in new tab
+            showStatus(
+              "CORS error — opened in a new tab. Right-click → Save to download.",
+              "error"
+            );
+            window.open(url, "_blank");
+            showStatus(`Download failed: ${err.message}`, "error");
+          }
+        });
+
+        // Re-render results when format changes
+        $all('input[name="format"]').forEach((radio) => {
+          radio.addEventListener("change", () => {
+            if (currentResult) {
+              renderImages(
+                currentResult.photos,
+                currentResult.userId,
+                currentResult.postId
+              );
+            }
+          });
+        });
+
+        // Show fallback section if ?fallback=1
+        if (isFallbackMode()) {
+          $("#fallbackSection").classList.remove("hidden");
+        }
+
+        // Theme toggle
+        const themeToggle = $("#themeToggle");
+        const html = document.documentElement;
+
+        // Detect saved preference or system pref
+        const saved = localStorage.getItem("theme");
+        if (saved === "light") {
+          html.classList.remove("dark");
+        } else if (saved === "dark") {
+          html.classList.add("dark");
+        } else {
+          // Default: match system
+          if (!window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            html.classList.remove("dark");
+          }
+        }
+
+        themeToggle.addEventListener("click", () => {
+          const isDark = html.classList.toggle("dark");
+          localStorage.setItem("theme", isDark ? "dark" : "light");
+        });
+      }
+
+      window.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
 </html>
