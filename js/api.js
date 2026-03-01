@@ -2,6 +2,13 @@
 // Image fetching, URL processing, and download utilities.
 // No DOM dependencies — safe to use in any context.
 // ────────────────────────────────────────────────────────
+// ─── CORS Proxy / Blob Fetcher ───────────────────────────
+
+// CORS proxy list — tried in order; first success wins
+const CORS_PROXIES = [
+  (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
 
 // ─── URL / Filename Utilities ───────────────────────────
 
@@ -60,14 +67,6 @@ function normalizeImageFilename(filename, imgtype, blobType) {
   return filename.replace(/\.[a-z0-9]+$/i, `.${ext}`);
 }
 
-// ─── CORS Proxy / Blob Fetcher ───────────────────────────
-
-// CORS proxy list — tried in order; first success wins
-const CORS_PROXIES = [
-  (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-];
-
 async function urlToBlob(url) {
   // 1) Try direct fetch first (works when same-origin or CORS allowed)
   try {
@@ -122,7 +121,7 @@ async function fetchTweetMedia(tweetId, userId) {
   const path = userId
     ? `${userId}/status/${tweetId}`
     : `status/${tweetId}`;
-  const apiUrl = `https://api.fxtwitter.com/${path}`;
+  const apiUrl = `https://api.vxtwitter.com/${path}`;
   const res = await fetch(apiUrl);
   if (!res.ok) {
     throw new Error(
@@ -130,24 +129,43 @@ async function fetchTweetMedia(tweetId, userId) {
     );
   }
   const data = await res.json();
-  const tweet = data.tweet;
+  const tweet = data?.tweet ?? data;
   if (!tweet) throw new Error("Could not retrieve tweet data");
 
   const photos = [];
-  if (tweet.media?.photos) {
+  if (Array.isArray(tweet.media?.photos)) {
     for (const photo of tweet.media.photos) {
       photos.push(photo.url);
     }
   }
+
+  if (photos.length === 0 && Array.isArray(tweet.media_extended)) {
+    for (const media of tweet.media_extended) {
+      if (media?.type === "photo" && media?.url) {
+        photos.push(media.url);
+      }
+    }
+  }
+
+  if (photos.length === 0 && Array.isArray(tweet.mediaURLs)) {
+    for (const url of tweet.mediaURLs) {
+      if (typeof url === "string" && /pbs\.twimg\.com\/media\//.test(url)) {
+        photos.push(url);
+      }
+    }
+  }
+
+  const uniquePhotos = [...new Set(photos)];
+
   // mosaic (4-image collage) — individual URLs preferred
-  if (photos.length === 0 && tweet.media?.mosaic) {
+  if (uniquePhotos.length === 0 && tweet.media?.mosaic) {
     throw new Error("No images found in this post (may be video/GIF-only)");
   }
-  if (photos.length === 0) {
+  if (uniquePhotos.length === 0) {
     throw new Error("No images found in this post (may be video/GIF-only)");
   }
   return {
-    userId: tweet.author?.screen_name ?? "unknown",
-    photos,
+    userId: tweet.author?.screen_name ?? tweet.user_screen_name ?? userId ?? "unknown",
+    photos: uniquePhotos,
   };
 }

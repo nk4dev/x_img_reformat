@@ -3,6 +3,21 @@
 // Depends on api.js (uses extractXUserAndPost, downloadBlob).
 // ─────────────────────────────────────────────────────────
 
+function normalizeMediaUrl(url) {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete("tag");
+    return parsed.toString();
+  } catch (_) {
+    return url;
+  }
+}
+
+function isMp4Url(url) {
+  return typeof url === "string" && /\.mp4(\?|$)/i.test(url);
+}
+
 /**
  * Fetch video info for a tweet via FxTwitter API.
  * Returns { userId, videos: [{ url, variants, thumb, duration, width, height }] }
@@ -15,21 +30,39 @@ async function fetchTweetVideo(tweetId, userId) {
     throw new Error(`VxTwitter API error: ${res.status} ${res.statusText}`);
   }
   const data = await res.json();
-  const tweet = data.tweet;
+  const tweet = data?.tweet ?? data;
   if (!tweet) throw new Error("Could not retrieve tweet data");
 
-  if (!tweet.media?.videos?.length) {
+  const mediaVideos = Array.isArray(tweet.media?.videos) ? tweet.media.videos : [];
+  const extendedVideos = Array.isArray(tweet.media_extended)
+    ? tweet.media_extended.filter((m) => m?.type === "video" || m?.type === "gif")
+    : [];
+
+  const sourceVideos = mediaVideos.length ? mediaVideos : extendedVideos;
+
+  if (!sourceVideos.length) {
     throw new Error("No videos or GIFs found in this post");
   }
 
-  const videos = tweet.media.videos.map((v) => {
+  const videos = sourceVideos.map((v) => {
     // Prefer explicit variants list; fall back to formats
-    const rawVariants = v.variants?.length ? v.variants : (v.formats ?? []);
+    const rawVariants = v.variants?.length
+      ? v.variants
+      : v.formats?.length
+        ? v.formats
+        : v.url
+          ? [{ url: v.url, bitrate: v.bitrate ?? 0, content_type: "video/mp4" }]
+          : [];
     // Normalize variant URLs (strip problematic params like `tag`)
     const normalizedRaw = rawVariants.map((vr) => ({ ...(vr || {}), url: normalizeMediaUrl(vr.url) }));
     // Filter to MP4-like variants and sort by bitrate descending
     const variants = normalizedRaw
-      .filter((vr) => (vr.content_type ?? vr.container) === "video/mp4" || vr.container === "mp4")
+      .filter(
+        (vr) =>
+          (vr.content_type ?? vr.container) === "video/mp4" ||
+          vr.container === "mp4" ||
+          isMp4Url(vr.url)
+      )
       .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0));
 
     const finalVariants = variants.length
@@ -40,7 +73,7 @@ async function fetchTweetVideo(tweetId, userId) {
       url: finalVariants[0]?.url ?? normalizeMediaUrl(v.url),
       variants: finalVariants,
       thumb: v.thumbnail_url ?? "",
-      duration: v.duration ?? null,
+      duration: v.duration ?? (typeof v.duration_millis === "number" ? v.duration_millis / 1000 : null),
       width: v.width ?? null,
       height: v.height ?? null,
       type: v.type ?? "video",
@@ -48,7 +81,7 @@ async function fetchTweetVideo(tweetId, userId) {
   });
 
   return {
-    userId: tweet.author?.screen_name ?? "unknown",
+    userId: tweet.author?.screen_name ?? tweet.user_screen_name ?? userId ?? "unknown",
     videos,
   };
 }
