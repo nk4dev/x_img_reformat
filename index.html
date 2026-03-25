@@ -298,6 +298,19 @@
             class="ml-1.5 rounded-full bg-xblue/10 px-2 py-0.5 text-xs font-medium text-xblue"></span>
         </h2>
         <div id="videoGrid" class="space-y-4"></div>
+        <div class="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 dark:border-gray-700 dark:bg-xdarker">
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400">DL VideoURL:</span>
+          <span id="videoUrlDisplay" class="min-w-0 flex-1 break-all text-xs text-gray-500 dark:text-gray-400"></span>
+          <button id="videoUrlCopyBtn" type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700/50"
+            disabled>
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2M10 20h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            URL Copy
+          </button>
+        </div>
       </section>
     </div>
     <!-- video section end-->

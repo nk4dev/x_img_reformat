@@ -212,6 +212,14 @@ function setVideoLoading(loading) {
   }
 }
 
+function updateVideoUrlDisplay(url) {
+  const urlEl = $("#videoUrlDisplay");
+  const copyBtn = $("#videoUrlCopyBtn");
+  const safeUrl = (url || "").trim();
+  urlEl.textContent = safeUrl;
+  copyBtn.disabled = !safeUrl;
+}
+
 // ─── Video Result Rendering ──────────────────────────────
 
 function renderVideoResult(videos, userId, postId) {
@@ -220,6 +228,7 @@ function renderVideoResult(videos, userId, postId) {
   const countEl = $("#videoCount");
 
   grid.innerHTML = "";
+  updateVideoUrlDisplay(videos[0]?.url || "");
   videos.forEach((video, i) => {
     const card = document.createElement("div");
     card.className =
@@ -299,6 +308,7 @@ function renderVideoResult(videos, userId, postId) {
         if (videoEl) { videoEl.src = newUrl; videoEl.load(); }
         if (dlBtn) dlBtn.dataset.url = newUrl;
         if (openLink) openLink.href = newUrl;
+        updateVideoUrlDisplay(newUrl);
       });
     }
 
@@ -307,6 +317,7 @@ function renderVideoResult(videos, userId, postId) {
     dlBtn.addEventListener("click", async () => {
       const videoUrl = dlBtn.dataset.url;
       const idx = parseInt(dlBtn.dataset.index, 10);
+      updateVideoUrlDisplay(videoUrl);
       dlBtn.disabled = true;
       dlBtn.textContent = "Downloading...";
       try {
@@ -354,6 +365,7 @@ async function handleVideoExtract() {
   }
 
   hideVideoStatus();
+  updateVideoUrlDisplay("");
   setVideoLoading(true);
 
   try {
@@ -366,6 +378,7 @@ async function handleVideoExtract() {
     );
   } catch (err) {
     console.error("Video extract failed:", err);
+    updateVideoUrlDisplay("");
     showVideoStatus(`Failed to extract video: ${err.message}`, "error");
   } finally {
     setVideoLoading(false);
@@ -629,6 +642,20 @@ function init() {
 
   $("#videoUrlInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleVideoExtract();
+  });
+
+  $("#videoUrlCopyBtn").addEventListener("click", async () => {
+    const videoUrl = $("#videoUrlDisplay").textContent.trim();
+    if (!videoUrl) {
+      showVideoStatus("No video URL to copy", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(videoUrl);
+      showVideoStatus("Video URL copied to clipboard", "success");
+    } catch (_) {
+      showVideoStatus("Could not copy URL. Please copy manually.", "error");
+    }
   });
 
   // Theme toggle
